@@ -1,138 +1,103 @@
-import { Component } from "react";
+import { useState, useEffect } from "react";
+
 import SearchBar from "./components/SearchBar";
 import ImageGallery from "./components/ImageGallery";
-import * as fetchImagesApi from "./services/images-api";
 import ErrorMessage from "./components/ErrorMessage";
 import Loader from "./components/Loader";
 import Modal from "./components/Modal";
 import Button from "./components/Button";
+
+import fetchDataApi from "./services/images-api";
+
 import IconButton from "./components/IconButton";
 import { ReactComponent as CloseBtn } from "./icons/close.svg";
 
-export default class App extends Component {
-  state = {
-    images: [],
-    currentPage: 1,
-    searchQuery: "",
-    isLoading: false,
-    isModalOpen: false,
-    largeImage: "",
-    error: null,
-  };
+export default function App() {
+  const [images, setImages] = useState([]);
+  const [currentPage, setCurrentPage] = useState(0);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [largeImage, setLargeImage] = useState("");
+  const [error, setError] = useState(null);
 
-  componentDidUpdate(prevProps, prevState) {
-    const { currentPage, searchQuery } = this.state;
-    if (
-      prevState.searchQuery !== searchQuery ||
-      prevState.currentPage !== currentPage
-    ) {
-      this.getImages(searchQuery, currentPage);
+  useEffect(() => {
+    if (searchQuery) {
+      getImages();
     }
-  }
+  }, [searchQuery]);
 
-  getImages = (query, page) => {
-    query === ""
-      ? this.setState({
-          isLoading: false,
-          error: true,
-        })
-      : this.setState({
-          isLoading: true,
-        });
+  const getImages = () => {
+    setIsLoading(true);
 
-    fetchImagesApi
-      .get(query, page)
-      .then(({ data }) => {
-        this.setState((prevState) => ({
-          images: [...prevState.images, ...data.hits],
-        }));
+    fetchDataApi(searchQuery, currentPage)
+      .then(({ hits }) => {
+        console.log(hits);
+        setImages((prevImages) => [...prevImages, ...hits]);
+        setCurrentPage((prevCurrentPage) => prevCurrentPage + 1);
+        if (currentPage > 1) {
+          scroll();
+        }
       })
-      .catch((error) => {
-        throw new Error(error);
-      })
-      .finally(() => {
-        const { images } = this.state;
-
-        images.length < 1
-          ? this.setState({ error: true })
-          : this.setState({ error: false });
-
-        this.setState({
-          isLoading: false,
-        });
-
-        page > 1 && this.scroll();
-      });
+      .catch((err) => setError(err))
+      .finally(() => setIsLoading(false));
   };
 
-  toggleModal = () => {
-    this.setState(({ isModalOpen }) => ({
-      isModalOpen: !isModalOpen,
-      largeImage: "",
-    }));
+  const toggleModal = () => {
+    setIsModalOpen((prevModal) => !prevModal);
   };
 
-  handleFormSubmit = (searchQuery) => {
-    searchQuery === ""
-      ? this.setState({
-          images: [],
-          currentPage: 1,
-          error: true,
-        })
-      : this.setState({
-          images: [],
-          currentPage: 1,
-          searchQuery,
-          error: false,
-        });
+  const handleFormSubmit = (searchQuery) => {
+    setImages([]);
+    setCurrentPage(1);
+    setSearchQuery(searchQuery);
+    setIsLoading(false);
+    setIsModalOpen(false);
+    setLargeImage("");
+    setError(false);
+
+    if (searchQuery === "" || images === []) {
+      setError(true);
+    }
   };
 
-  handleGalleryItem = (fullImageUrl) => {
-    this.setState({ largeImage: fullImageUrl, isModalOpen: true });
+  const handleGalleryItem = (fullImageUrl) => {
+    setLargeImage(fullImageUrl);
+    setIsModalOpen(true);
   };
 
-  handleClickOnMore = () => {
-    const { currentPage } = this.state;
-    this.setState({
-      currentPage: currentPage + 1,
-    });
-  };
-
-  scroll = () => {
+  const scroll = () => {
     window.scrollTo({
       top: document.documentElement.scrollHeight,
       behavior: "smooth",
     });
   };
 
-  render() {
-    const { images, isLoading, isModalOpen, largeImage, error } = this.state;
-    const showLoadMore = images.length > 0 && images.length >= 12;
-    return (
-      <>
-        <SearchBar onSubmit={this.handleFormSubmit} />
+  const showLoadMore = images.length > 0 && images.length >= 12;
+  return (
+    <>
+      <SearchBar onSubmit={handleFormSubmit} />
 
-        {error === null && (
-          <p className="preview">Start searching for images 👀</p>
-        )}
+      {error === null && (
+        <p className="preview">Start searching for images 👀</p>
+      )}
 
-        {isLoading && <Loader />}
+      {isLoading && <Loader />}
 
-        <ImageGallery images={images} openModal={this.handleGalleryItem} />
+      <ImageGallery images={images} openModal={handleGalleryItem} />
 
-        {showLoadMore && <Button onClick={this.handleClickOnMore} />}
+      {showLoadMore && <Button onLoadMore={getImages} />}
 
-        {isModalOpen && (
-          <Modal onClose={this.toggleModal}>
-            <IconButton onClick={this.toggleModal} aria-label="close modal">
-              <CloseBtn width="20px" height="20px" fill="black" />
-            </IconButton>
-            <img src={largeImage} alt="" className="modalImage" />
-          </Modal>
-        )}
+      {isModalOpen && (
+        <Modal onClose={toggleModal}>
+          <IconButton onClick={toggleModal} aria-label="close modal">
+            <CloseBtn width="20px" height="20px" fill="black" />
+          </IconButton>
+          <img src={largeImage} alt="" className="modalImage" />
+        </Modal>
+      )}
 
-        {error && <ErrorMessage />}
-      </>
-    );
-  }
+      {error && <ErrorMessage />}
+    </>
+  );
 }
