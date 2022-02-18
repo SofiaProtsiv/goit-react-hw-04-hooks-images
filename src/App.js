@@ -25,16 +25,15 @@ export default function App() {
     if (searchQuery) {
       getImages();
     }
-  }, [searchQuery]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchQuery, currentPage]);
 
   const getImages = () => {
     setIsLoading(true);
 
     fetchDataApi(searchQuery, currentPage)
       .then(({ hits }) => {
-        console.log(hits);
         setImages((prevImages) => [...prevImages, ...hits]);
-        setCurrentPage((prevCurrentPage) => prevCurrentPage + 1);
         if (currentPage > 1) {
           scroll();
         }
@@ -42,7 +41,9 @@ export default function App() {
       .catch((err) => setError(err))
       .finally(() => setIsLoading(false));
   };
-
+  const loadMore = () => {
+    setCurrentPage((prevCurrentPage) => prevCurrentPage + 1);
+  };
   const toggleModal = () => {
     setIsModalOpen((prevModal) => !prevModal);
   };
@@ -86,7 +87,7 @@ export default function App() {
 
       <ImageGallery images={images} openModal={handleGalleryItem} />
 
-      {showLoadMore && <Button onLoadMore={getImages} />}
+      {showLoadMore && <Button onLoadMore={loadMore} />}
 
       {isModalOpen && (
         <Modal onClose={toggleModal}>
